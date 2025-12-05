@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>気象情報可視化システム</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .card h2 {
+            color: #333;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .control-group label {
+            font-size: 12px;
+            color: #666;
+            font-weight: bold;
+        }
+        
+        select, input, button {
+            padding: 10px 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        select:focus, input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 400px;
+            width: 100%;
+        }
+        
+        .map-container {
+            position: relative;
+            height: 400px;
+            width: 100%;
+        }
+        
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        tr:hover {
+            background: #f5f5f5;
+        }
+        
+        .table-container {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .weather-icon {
+            font-size: 24px;
+        }
+        
+        .status-message {
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: none;
+        }
+        
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+            display: block;
+        }
+        
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+            display: block;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .tab {
+            padding: 10px 20px;
+            background: #e0e0e0;
+            border: none;
+            border-radius: 8px 8px 0 0;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        
+        .tab.active {
+            background: white;
+            color: #667eea;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌤️ 気象情報可視化システム</h1>
+        
+        <!-- コントロールパネル -->
+        <div class="card">
+            <h2>📍 データ取得・フィルター</h2>
+            <div id="statusMessage" class="status-message"></div>
+            <div class="controls">
+                <div class="control-group">
+                    <label>地域名（都市名を入力）</label>
+                    <input type="text" id="locationInput" placeholder="例: Tokyo, New York, London" list="locationSuggestions">
+                    <datalist id="locationSuggestions"></datalist>
+                </div>
+                <div class="control-group">
+                    <label>開始日</label>
+                    <input type="date" id="startDate">
+                </div>
+                <div class="control-group">
+                    <label>終了日</label>
+                    <input type="date" id="endDate">
+                </div>
+
+                <button onclick="fetchWeatherData()" class="btn-success">🔄 API取得</button>
+            </div>
+        </div>
+        
+        <!-- 統計サマリー -->
+        <div class="card" id="statsCard" style="display: none;">
+            <h2>📈 統計サマリー</h2>
+            <div class="stats-grid" id="statsGrid">
+            </div>
+        </div>
+        
+        <!-- タブナビゲーション -->
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('chart')">📊 グラフ</button>
+            <button class="tab" onclick="showTab('table')">📋 データ表</button>
+            <button class="tab" onclick="showTab('logs')">📝 操作ログ</button>
+        </div>
+        
+        <!-- グラフタブ -->
+        <div id="chartTab" class="tab-content active">
+            <div class="card">
+                <h2>📊 気象グラフ</h2>
+                <div class="controls">
+                    <div class="control-group">
+                        <label>データ種別</label>
+                        <select id="chartTypeSelect" onchange="updateChart()">
+                            <option value="temperature">🌡️ 気温</option>
+                            <option value="humidity">💧 湿度</option>
+                            <option value="precipitation">🌧️ 降水量</option>
+                            <option value="wind">💨 風速</option>
+                            <option value="pressure">🔘 気圧</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid-2">
+                    <div class="chart-container">
+                        <canvas id="mainChart"></canvas>
+                    </div>
+                    <div class="map-container" id="mapContainer">
+                        <div id="locationMap" style="width: 100%; height: 100%; border-radius: 10px;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- データ表タブ -->
+        <div id="tableTab" class="tab-content">
+            <div class="card">
+                <h2>📋 気象データ一覧</h2>
+                <div class="table-container">
+                    <table id="weatherTable">
+                        <thead>
+                            <tr>
+                                <th>日時</th>
+                                <th>地域</th>
+                                <th>天気</th>
+                                <th>気温(℃)</th>
+                                <th>湿度(%)</th>
+                                <th>降水量(mm)</th>
+                                <th>風速(m/s)</th>
+                                <th>気圧(hPa)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="weatherTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- ログタブ -->
+        <div id="logsTab" class="tab-content">
+            <div class="card">
+                <h2>📝 操作ログ</h2>
+                <div class="table-container">
+                    <table id="logsTable">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>操作種別</th>
+                                <th>詳細</th>
+                                <th>日時</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logsTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '';
+        let mainChart = null;
+        let comparisonChart = null;
+        let currentWeatherData = [];
+        
+        // 天気コードから絵文字に変換
+        function getWeatherEmoji(code) {
+            if (code === null || code === undefined) return '❓';
+            if (code === 0) return '☀️';
+            if (code <= 3) return '⛅';
+            if (code <= 49) return '🌫️';
+            if (code <= 59) return '🌧️';
+            if (code <= 69) return '🌨️';
+            if (code <= 79) return '❄️';
+            if (code <= 84) return '🌧️';
+            if (code <= 94) return '⛈️';
+            return '🌪️';
+        }
+        
+        // 初期化
+        async function init() {
+            initMap();
+            await loadLocations();
+            setDefaultDates();
+            await loadData();
+        }
+        
+        // 地域一覧を読み込み（サジェスト用）
+        async function loadLocations() {
+            try {
+                const response = await fetch(`${API_BASE}/api/locations`);
+                const locations = await response.json();
+                const datalist = document.getElementById('locationSuggestions');
+                datalist.innerHTML = '';
+                locations.forEach(loc => {
+                    datalist.innerHTML += `<option value="${loc.name}">`;
+                });
+            } catch (error) {
+                console.error('地域読み込みエラー:', error);
+            }
+        }
+        
+        // デフォルト日付を設定
+        function setDefaultDates() {
+            const today = new Date();
+            const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+            
+            document.getElementById('endDate').value = today.toISOString().split('T')[0];
+            document.getElementById('startDate').value = weekAgo.toISOString().split('T')[0];
+        }
+        
+        // 地図の初期化
+        let map = null;
+        let currentMarker = null;
+        
+        function initMap() {
+            // 世界地図を初期表示
+            map = L.map('locationMap').setView([35, 135], 2);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            }).addTo(map);
+        }
+        
+        // 地図を更新
+        function updateMap(location) {
+            if (!map) {
+                initMap();
+            }
+            
+            if (!location) {
+                // 地域未指定の場合は世界全体を表示
+                map.setView([35, 135], 2);
+                if (currentMarker) {
+                    map.removeLayer(currentMarker);
+                    currentMarker = null;
+                }
+                return;
+            }
+            
+            // Nominatim APIで座標を取得して地図を移動
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(location)}&limit=1`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data && data.length > 0) {
+                        const lat = parseFloat(data[0].lat);
+                        const lon = parseFloat(data[0].lon);
+                        
+                        // 既存のマーカーを削除
+                        if (currentMarker) {
+                            map.removeLayer(currentMarker);
+                        }
+                        
+                        // アニメーション付きで指定位置に移動
+                        map.flyTo([lat, lon], 10, {
+                            duration: 2
+                        });
+                        
+                        // マーカーを追加
+                        currentMarker = L.marker([lat, lon]).addTo(map)
+                            .bindPopup(`<b>${location}</b><br>緯度: ${lat.toFixed(4)}<br>経度: ${lon.toFixed(4)}`)
+                            .openPopup();
+                    }
+                })
+                .catch(err => console.error('地図読み込みエラー:', err));
+        }
+        
+        // ステータスメッセージを表示
+        function showStatus(message, isError = false) {
+            const elem = document.getElementById('statusMessage');
+            elem.textContent = message;
+            elem.className = `status-message ${isError ? 'status-error' : 'status-success'}`;
+            setTimeout(() => {
+                elem.className = 'status-message';
+            }, 5000);
+        }
+        
+        // 気象データをAPIから取得
+        async function fetchWeatherData() {
+            const location = document.getElementById('locationInput').value.trim();
+            if (!location) {
+                showStatus('地域名を入力してください', true);
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/weather/fetch`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ location_name: location, days: 7 })
+                });
+                
+                const result = await response.json();
+                if (response.ok) {
+                    showStatus(`${location}の気象データを取得しました`);
+                    updateMap(location);
+                    await loadData();
+                } else {
+                    showStatus(result.error, true);
+                }
+            } catch (error) {
+                showStatus('データ取得に失敗しました', true);
+            }
+        }
+        
+        // 全地域のデータを取得
+        async function fetchAllWeatherData() {
+            try {
+                showStatus('全地域のデータを取得中...');
+                const response = await fetch(`${API_BASE}/api/weather/fetch_all`, {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                const successCount = result.results.filter(r => r.success).length;
+                showStatus(`${successCount}/${result.results.length} 地域のデータを取得しました`);
+                loadData();
+            } catch (error) {
+                showStatus('データ取得に失敗しました', true);
+            }
+        }
+        
+        // データを読み込み
+        async function loadData() {
+            const location = document.getElementById('locationInput').value.trim();
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            
+            let url = `${API_BASE}/api/weather?limit=168`;
+            if (location) url += `&location=${encodeURIComponent(location)}`;
+            if (startDate) url += `&start_date=${startDate}`;
+            if (endDate) url += `&end_date=${endDate}T23:59:59`;
+            
+            try {
+                const response = await fetch(url);
+                currentWeatherData = await response.json();
+                updateTable();
+                updateChart();
+                updateStats();
+                loadLogs();
+            } catch (error) {
+                console.error('データ読み込みエラー:', error);
+            }
+        }
+        
+        // 統計を更新
+        function updateStats() {
+            if (currentWeatherData.length === 0) {
+                document.getElementById('statsCard').style.display = 'none';
+                return;
+            }
+            
+            document.getElementById('statsCard').style.display = 'block';
+            
+            const temps = currentWeatherData.filter(d => d.temperature !== null).map(d => d.temperature);
+            const humidity = currentWeatherData.filter(d => d.humidity !== null).map(d => d.humidity);
+            const precip = currentWeatherData.filter(d => d.precipitation !== null).map(d => d.precipitation);
+            const wind = currentWeatherData.filter(d => d.wind_speed !== null).map(d => d.wind_speed);
+            
+            const stats = [
+                { label: '平均気温', value: temps.length ? (temps.reduce((a,b) => a+b, 0) / temps.length).toFixed(1) + '℃' : '-' },
+                { label: '最高気温', value: temps.length ? Math.max(...temps).toFixed(1) + '℃' : '-' },
+                { label: '最低気温', value: temps.length ? Math.min(...temps).toFixed(1) + '℃' : '-' },
+                { label: '平均湿度', value: humidity.length ? (humidity.reduce((a,b) => a+b, 0) / humidity.length).toFixed(0) + '%' : '-' },
+                { label: '総降水量', value: precip.length ? precip.reduce((a,b) => a+b, 0).toFixed(1) + 'mm' : '-' },
+                { label: '平均風速', value: wind.length ? (wind.reduce((a,b) => a+b, 0) / wind.length).toFixed(1) + 'm/s' : '-' },
+            ];
+            
+            const statsGrid = document.getElementById('statsGrid');
+            statsGrid.innerHTML = stats.map(s => `
+                <div class="stat-card">
+                    <div class="stat-value">${s.value}</div>
+                    <div class="stat-label">${s.label}</div>
+                </div>
+            `).join('');
+        }
+        
+        // テーブルを更新
+        function updateTable() {
+            const tbody = document.getElementById('weatherTableBody');
+            tbody.innerHTML = currentWeatherData.map(d => `
+                <tr>
+                    <td>${new Date(d.timestamp).toLocaleString('ja-JP')}</td>
+                    <td>${d.location_name}</td>
+                    <td class="weather-icon">${getWeatherEmoji(d.weather_code)}</td>
+                    <td>${d.temperature !== null ? d.temperature.toFixed(1) : '-'}</td>
+                    <td>${d.humidity !== null ? d.humidity.toFixed(0) : '-'}</td>
+                    <td>${d.precipitation !== null ? d.precipitation.toFixed(1) : '-'}</td>
+                    <td>${d.wind_speed !== null ? d.wind_speed.toFixed(1) : '-'}</td>
+                    <td>${d.pressure !== null ? d.pressure.toFixed(0) : '-'}</td>
+                </tr>
+            `).join('');
+        }
+        
+        // グラフを更新
+        function updateChart() {
+            const chartType = document.getElementById('chartTypeSelect').value;
+            const location = document.getElementById('locationInput').value.trim();
+            
+            const labels = {
+                temperature: { label: '気温 (℃)', color: '#ff6384' },
+                humidity: { label: '湿度 (%)', color: '#36a2eb' },
+                precipitation: { label: '降水量 (mm)', color: '#4bc0c0' },
+                wind: { label: '風速 (m/s)', color: '#ff9f40' },
+                pressure: { label: '気圧 (hPa)', color: '#9966ff' }
+            };
+            
+            const dataKey = chartType === 'wind' ? 'wind_speed' : chartType;
+            const sortedData = [...currentWeatherData].sort((a, b) => 
+                new Date(a.timestamp) - new Date(b.timestamp)
+            );
+            
+            // メインチャート
+            const chartData = sortedData.filter(d => d[dataKey] !== null);
+            
+            if (mainChart) mainChart.destroy();
+            
+            const ctx = document.getElementById('mainChart').getContext('2d');
+            mainChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: chartData.map(d => new Date(d.timestamp).toLocaleString('ja-JP', {
+                        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                    })),
+                    datasets: [{
+                        label: labels[chartType].label,
+                        data: chartData.map(d => d[dataKey]),
+                        borderColor: labels[chartType].color,
+                        backgroundColor: labels[chartType].color + '40',
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `${location || '全地域'} - ${labels[chartType].label}の推移`
+                        }
+                    },
+                    scales: {
+                        x: {
+                            display: true,
+                            title: { display: true, text: '日時' }
+                        },
+                        y: {
+                            display: true,
+                            title: { display: true, text: labels[chartType].label }
+                        }
+                    }
+                }
+            });
+            
+            // 比較チャート（地域別または日別平均）
+            updateComparisonChart(chartType, dataKey);
+        }
+        
+        // 比較チャートを更新
+        function updateComparisonChart(chartType, dataKey) {
+            const labels = {
+                temperature: { label: '気温 (℃)', color: '#ff6384' },
+                humidity: { label: '湿度 (%)', color: '#36a2eb' },
+                precipitation: { label: '降水量 (mm)', color: '#4bc0c0' },
+                wind: { label: '風速 (m/s)', color: '#ff9f40' },
+                pressure: { label: '気圧 (hPa)', color: '#9966ff' }
+            };
+            
+            // 地域別の平均値を計算
+            const locationData = {};
+            currentWeatherData.forEach(d => {
+                if (d[dataKey] !== null) {
+                    if (!locationData[d.location_name]) {
+                        locationData[d.location_name] = [];
+                    }
+                    locationData[d.location_name].push(d[dataKey]);
+                }
+            });
+            
+            const locationNames = Object.keys(locationData);
+            const averages = locationNames.map(name => {
+                const values = locationData[name];
+                return values.reduce((a, b) => a + b, 0) / values.length;
+            });
+            
+            if (comparisonChart) comparisonChart.destroy();
+            
+            const ctx = document.getElementById('comparisonChart').getContext('2d');
+            comparisonChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: locationNames,
+                    datasets: [{
+                        label: `平均${labels[chartType].label}`,
+                        data: averages,
+                        backgroundColor: locationNames.map((_, i) => 
+                            `hsl(${i * 45}, 70%, 60%)`
+                        ),
+                        borderColor: locationNames.map((_, i) => 
+                            `hsl(${i * 45}, 70%, 40%)`
+                        ),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `地域別 平均${labels[chartType].label}`
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: chartType === 'precipitation'
+                        }
+                    }
+                }
+            });
+        }
+        
+        // ログを読み込み
+        async function loadLogs() {
+            try {
+                const response = await fetch(`${API_BASE}/api/logs?limit=50`);
+                const logs = await response.json();
+                
+                const tbody = document.getElementById('logsTableBody');
+                tbody.innerHTML = logs.map(log => `
+                    <tr>
+                        <td>${log.id}</td>
+                        <td>${log.action_type}</td>
+                        <td>${log.action_detail || '-'}</td>
+                        <td>${new Date(log.timestamp).toLocaleString('ja-JP')}</td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                console.error('ログ読み込みエラー:', error);
+            }
+        }
+        
+        // タブを切り替え
+        function showTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            
+            document.querySelector(`.tab[onclick="showTab('${tabName}')"]`).classList.add('active');
+            document.getElementById(`${tabName}Tab`).classList.add('active');
+            
+            if (tabName === 'logs') {
+                loadLogs();
+            }
+        }
+        
+        // ページ読み込み時に初期化
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

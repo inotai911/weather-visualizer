@@ -1,0 +1,435 @@
+"""
+気象情報可視化システム - Flaskバックエンド
+Open Meteo APIから気象データを取得し、SQLiteに保存、APIとして提供
+"""
+
+from flask import Flask, jsonify, request, render_template
+from flask_cors import CORS
+import sqlite3
+import requests
+from datetime import datetime, timedelta
+import json
+import os
+
+app = Flask(__name__, static_folder='static', template_folder='templates')
+CORS(app)
+
+# データベースパス
+DB_PATH = os.path.join(os.path.dirname(__file__), 'weather.db')
+
+def get_db_connection():
+    """データベース接続を取得"""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def init_db():
+    """データベースの初期化"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # 気象データテーブル
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS meteo_data (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            location_name TEXT NOT NULL,
+            latitude REAL NOT NULL,
+            longitude REAL NOT NULL,
+            timestamp DATETIME NOT NULL,
+            temperature REAL,
+            humidity REAL,
+            precipitation REAL,
+            wind_speed REAL,
+            wind_direction INTEGER,
+            weather_code INTEGER,
+            pressure REAL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(latitude, longitude, timestamp)
+        )
+    ''')
+    
+    # ユーザー操作ログテーブル
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS user_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            action_type TEXT NOT NULL,
+            action_detail TEXT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    # 地域マスタテーブル
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS locations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            latitude REAL NOT NULL,
+            longitude REAL NOT NULL
+        )
+    ''')
+    
+    # デフォルトの地域を追加
+    default_locations = [
+        ('東京', 35.6762, 139.6503),
+        ('大阪', 34.6937, 135.5023),
+        ('名古屋', 35.1815, 136.9066),
+        ('札幌', 43.0618, 141.3545),
+        ('福岡', 33.5904, 130.4017),
+        ('仙台', 38.2682, 140.8694),
+        ('広島', 34.3853, 132.4553),
+        ('那覇', 26.2124, 127.6809),
+    ]
+    
+    for name, lat, lon in default_locations:
+        cursor.execute('''
+            INSERT OR IGNORE INTO locations (name, latitude, longitude)
+            VALUES (?, ?, ?)
+        ''', (name, lat, lon))
+    
+    conn.commit()
+    conn.close()
+
+def log_action(action_type, action_detail=None):
+    """ユーザー操作をログに記録"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO user_log (action_type, action_detail)
+        VALUES (?, ?)
+    ''', (action_type, action_detail))
+    conn.commit()
+    conn.close()
+
+def geocode_location(location_name):
+    """Open Meteo Geocoding APIで地名から座標を取得"""
+    url = "https://geocoding-api.open-meteo.com/v1/search"
+    params = {
+        "name": location_name,
+        "count": 1,
+        "language": "ja",
+        "format": "json"
+    }
+    
+    try:
+        response = requests.get(url, params=params, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        
+        results = data.get('results', [])
+        if results:
+            return results[0]['latitude'], results[0]['longitude']
+        return None
+    except:
+        return None
+
+def fetch_weather_from_api(latitude, longitude, location_name, days=7):
+    """Open Meteo APIから気象データを取得"""
+    url = "https://api.open-meteo.com/v1/forecast"
+    params = {
+        "latitude": latitude,
+        "longitude": longitude,
+        "hourly": "temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m,wind_direction_10m,weather_code,pressure_msl",
+        "timezone": "Asia/Tokyo",
+        "forecast_days": days
+    }
+    
+    try:
+        response = requests.get(url, params=params, timeout=30)
+        response.raise_for_status()
+        data = response.json()
+        
+        # データベースに保存
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        hourly = data.get('hourly', {})
+        times = hourly.get('time', [])
+        
+        for i, time_str in enumerate(times):
+            cursor.execute('''
+                INSERT OR REPLACE INTO meteo_data 
+                (location_name, latitude, longitude, timestamp, temperature, humidity, 
+                 precipitation, wind_speed, wind_direction, weather_code, pressure)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                location_name,
+                latitude,
+                longitude,
+                time_str,
+                hourly.get('temperature_2m', [None])[i] if i < len(hourly.get('temperature_2m', [])) else None,
+                hourly.get('relative_humidity_2m', [None])[i] if i < len(hourly.get('relative_humidity_2m', [])) else None,
+                hourly.get('precipitation', [None])[i] if i < len(hourly.get('precipitation', [])) else None,
+                hourly.get('wind_speed_10m', [None])[i] if i < len(hourly.get('wind_speed_10m', [])) else None,
+                hourly.get('wind_direction_10m', [None])[i] if i < len(hourly.get('wind_direction_10m', [])) else None,
+                hourly.get('weather_code', [None])[i] if i < len(hourly.get('weather_code', [])) else None,
+                hourly.get('pressure_msl', [None])[i] if i < len(hourly.get('pressure_msl', [])) else None,
+            ))
+        
+        conn.commit()
+        conn.close()
+        
+        log_action('API_FETCH', f'気象データ取得: {location_name}')
+        return True, "データ取得成功"
+        
+    except requests.exceptions.RequestException as e:
+        return False, str(e)
+
+@app.route('/')
+def index():
+    """トップページ"""
+    log_action('PAGE_VIEW', 'トップページ')
+    return render_template('index.html')
+
+@app.route('/api/locations', methods=['GET'])
+def get_locations():
+    """登録済み地域一覧を取得"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM locations ORDER BY name')
+    locations = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    log_action('API_CALL', '地域一覧取得')
+    return jsonify(locations)
+
+@app.route('/api/locations', methods=['POST'])
+def add_location():
+    """新しい地域を追加"""
+    data = request.json
+    name = data.get('name')
+    latitude = data.get('latitude')
+    longitude = data.get('longitude')
+    
+    if not all([name, latitude, longitude]):
+        return jsonify({'error': '必須パラメータが不足しています'}), 400
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute('''
+            INSERT INTO locations (name, latitude, longitude)
+            VALUES (?, ?, ?)
+        ''', (name, latitude, longitude))
+        conn.commit()
+        log_action('LOCATION_ADD', f'地域追加: {name}')
+        return jsonify({'message': '地域を追加しました', 'id': cursor.lastrowid})
+    except sqlite3.IntegrityError:
+        return jsonify({'error': 'この地域名は既に登録されています'}), 400
+    finally:
+        conn.close()
+
+@app.route('/api/weather/fetch', methods=['POST'])
+def fetch_weather():
+    """指定地域の気象データをAPIから取得（世界中の都市に対応）"""
+    data = request.json
+    location_name = data.get('location_name', '').strip()
+    days = data.get('days', 7)
+    
+    if not location_name:
+        return jsonify({'error': '地域名を入力してください'}), 400
+    
+    # まずDBに登録済みか確認
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM locations WHERE name = ?', (location_name,))
+    location = cursor.fetchone()
+    conn.close()
+    
+    if location:
+        # 登録済みの場合はその座標を使用
+        success, message = fetch_weather_from_api(
+            location['latitude'], 
+            location['longitude'], 
+            location_name, 
+            days
+        )
+    else:
+        # 未登録の場合はGeocoding APIで座標を取得
+        coords = geocode_location(location_name)
+        if coords:
+            lat, lon = coords
+            # 地域をDBに登録
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            try:
+                cursor.execute('''
+                    INSERT INTO locations (name, latitude, longitude)
+                    VALUES (?, ?, ?)
+                ''', (location_name, lat, lon))
+                conn.commit()
+            except:
+                pass
+            conn.close()
+            
+            success, message = fetch_weather_from_api(lat, lon, location_name, days)
+        else:
+            return jsonify({'error': f'「{location_name}」の位置情報が見つかりませんでした'}), 404
+    
+    if success:
+        return jsonify({'message': message})
+    else:
+        return jsonify({'error': message}), 500
+
+@app.route('/api/weather/fetch_all', methods=['POST'])
+def fetch_all_weather():
+    """全地域の気象データを取得"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM locations')
+    locations = cursor.fetchall()
+    conn.close()
+    
+    results = []
+    for location in locations:
+        success, message = fetch_weather_from_api(
+            location['latitude'],
+            location['longitude'],
+            location['name'],
+            7
+        )
+        results.append({
+            'location': location['name'],
+            'success': success,
+            'message': message
+        })
+    
+    return jsonify({'results': results})
+
+@app.route('/api/weather', methods=['GET'])
+def get_weather():
+    """気象データを取得（フィルタリング可能）"""
+    location_name = request.args.get('location')
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    limit = request.args.get('limit', 168, type=int)  # デフォルト7日分（168時間）
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    query = 'SELECT * FROM meteo_data WHERE 1=1'
+    params = []
+    
+    if location_name:
+        query += ' AND location_name = ?'
+        params.append(location_name)
+    
+    if start_date:
+        query += ' AND timestamp >= ?'
+        params.append(start_date)
+    
+    if end_date:
+        query += ' AND timestamp <= ?'
+        params.append(end_date)
+    
+    query += ' ORDER BY timestamp DESC LIMIT ?'
+    params.append(limit)
+    
+    cursor.execute(query, params)
+    weather_data = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    
+    log_action('DATA_VIEW', f'気象データ表示: {location_name or "全地域"}')
+    return jsonify(weather_data)
+
+@app.route('/api/weather/summary', methods=['GET'])
+def get_weather_summary():
+    """気象データのサマリーを取得"""
+    location_name = request.args.get('location')
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    query = '''
+        SELECT 
+            location_name,
+            DATE(timestamp) as date,
+            AVG(temperature) as avg_temp,
+            MAX(temperature) as max_temp,
+            MIN(temperature) as min_temp,
+            AVG(humidity) as avg_humidity,
+            SUM(precipitation) as total_precipitation,
+            AVG(wind_speed) as avg_wind_speed
+        FROM meteo_data
+        WHERE 1=1
+    '''
+    params = []
+    
+    if location_name:
+        query += ' AND location_name = ?'
+        params.append(location_name)
+    
+    query += ' GROUP BY location_name, DATE(timestamp) ORDER BY date DESC LIMIT 30'
+    
+    cursor.execute(query, params)
+    summary = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    
+    log_action('DATA_VIEW', f'サマリー表示: {location_name or "全地域"}')
+    return jsonify(summary)
+
+@app.route('/api/logs', methods=['GET'])
+def get_logs():
+    """操作ログを取得"""
+    limit = request.args.get('limit', 100, type=int)
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT * FROM user_log 
+        ORDER BY timestamp DESC 
+        LIMIT ?
+    ''', (limit,))
+    logs = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    
+    return jsonify(logs)
+
+@app.route('/api/weather/chart_data', methods=['GET'])
+def get_chart_data():
+    """グラフ用のデータを取得"""
+    location_name = request.args.get('location')
+    data_type = request.args.get('type', 'temperature')  # temperature, humidity, precipitation, wind
+    hours = request.args.get('hours', 72, type=int)
+    
+    if not location_name:
+        return jsonify({'error': '地域を指定してください'}), 400
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # データタイプに応じたカラム名
+    column_map = {
+        'temperature': 'temperature',
+        'humidity': 'humidity',
+        'precipitation': 'precipitation',
+        'wind': 'wind_speed',
+        'pressure': 'pressure'
+    }
+    
+    column = column_map.get(data_type, 'temperature')
+    
+    cursor.execute(f'''
+        SELECT timestamp, {column} as value
+        FROM meteo_data
+        WHERE location_name = ? AND {column} IS NOT NULL
+        ORDER BY timestamp DESC
+        LIMIT ?
+    ''', (location_name, hours))
+    
+    data = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+    
+    # 時系列順に並び替え
+    data.reverse()
+    
+    log_action('CHART_VIEW', f'グラフ表示: {location_name} - {data_type}')
+    return jsonify({
+        'location': location_name,
+        'type': data_type,
+        'data': data
+    })
+
+if __name__ == '__main__':
+    init_db()
+    print("データベースを初期化しました")
+    print("サーバーを起動します: http://localhost:5000")
+    app.run(debug=True, host='0.0.0.0', port=5000)
