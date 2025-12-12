@@ -21,7 +21,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    
+
     // 初期データ読み込み
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = Provider.of<WeatherProvider>(context, listen: false);
@@ -68,7 +68,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   ],
                 ),
               ),
-              
+
               // メインコンテンツ
               Expanded(
                 child: Container(
@@ -81,7 +81,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                     children: [
                       // コントロールパネル
                       const ControlPanel(),
-                      
+
                       // ステータスメッセージ
                       Consumer<WeatherProvider>(
                         builder: (context, provider, child) {
@@ -94,36 +94,41 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                           return const SizedBox.shrink();
                         },
                       ),
-                      
-                      // 統計カード
+
+                      // 統計カード（コンパクトに）
                       const StatsCard(),
-                      
-                      // タブバー
-                      Container(
-                        color: Colors.white,
-                        child: TabBar(
-                          controller: _tabController,
-                          labelColor: const Color(0xFF667EEA),
-                          unselectedLabelColor: Colors.grey,
-                          indicatorColor: const Color(0xFF667EEA),
-                          tabs: const [
-                            Tab(icon: Icon(Icons.bar_chart), text: 'グラフ'),
-                            Tab(icon: Icon(Icons.table_chart), text: 'データ表'),
-                            Tab(icon: Icon(Icons.history), text: '操作ログ'),
-                          ],
-                        ),
-                      ),
-                      
-                      // タブビュー
+
+                      // タブバーとタブビューを密着させる
                       Expanded(
-                        child: TabBarView(
-                          controller: _tabController,
+                        child: Column(
                           children: [
-                            const WeatherChart(),
-                            const WeatherTable(),
-                            LogsTable(onTabSelected: () {
-                              Provider.of<WeatherProvider>(context, listen: false).loadLogs();
-                            }),
+                            // タブバー
+                            Material(
+                              color: Colors.white,
+                              child: TabBar(
+                                controller: _tabController,
+                                labelColor: const Color(0xFF667EEA),
+                                unselectedLabelColor: Colors.grey,
+                                indicatorColor: const Color(0xFF667EEA),
+                                indicatorSize: TabBarIndicatorSize.tab,
+                                tabs: const [
+                                  Tab(icon: Icon(Icons.bar_chart), text: 'グラフ'),
+                                  Tab(icon: Icon(Icons.table_chart), text: 'データ表'),
+                                  Tab(icon: Icon(Icons.history), text: '操作ログ'),
+                                ],
+                              ),
+                            ),
+                            // タブビュー（グラフエリア拡大）
+                            Expanded(
+                              child: TabBarView(
+                                controller: _tabController,
+                                children: const [
+                                  WeatherChart(),
+                                  WeatherTable(),
+                                  LogsTable(),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
                       ),

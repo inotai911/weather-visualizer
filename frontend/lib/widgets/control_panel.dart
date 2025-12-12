@@ -10,8 +10,8 @@ class ControlPanel extends StatelessWidget {
     return Consumer<WeatherProvider>(
       builder: (context, provider, child) {
         return Container(
-          margin: const EdgeInsets.all(16),
-          padding: const EdgeInsets.all(16),
+          margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(12),
@@ -106,6 +106,7 @@ class ControlPanel extends StatelessWidget {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
                       foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     ),
                     onPressed: provider.isLoading ? null : () => provider.fetchWeatherFromApi(),
                   ),
@@ -115,6 +116,7 @@ class ControlPanel extends StatelessWidget {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF667EEA),
                       foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     ),
                     onPressed: provider.isLoading ? null : () => provider.fetchAllWeather(),
                   ),
@@ -124,6 +126,7 @@ class ControlPanel extends StatelessWidget {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.grey[700],
                       foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     ),
                     onPressed: provider.isLoading ? null : () => provider.loadWeatherData(),
                   ),

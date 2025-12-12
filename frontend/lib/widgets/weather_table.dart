@@ -11,8 +11,8 @@ class WeatherTable extends StatelessWidget {
     return Consumer<WeatherProvider>(
       builder: (context, provider, child) {
         return Container(
-          margin: const EdgeInsets.all(16),
-          padding: const EdgeInsets.all(16),
+          margin: EdgeInsets.zero,
+          padding: const EdgeInsets.all(0),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(12),

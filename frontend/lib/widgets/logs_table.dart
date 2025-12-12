@@ -4,9 +4,9 @@ import 'package:intl/intl.dart';
 import '../providers/weather_provider.dart';
 
 class LogsTable extends StatefulWidget {
-  final VoidCallback onTabSelected;
+  final VoidCallback? onTabSelected;
   
-  const LogsTable({super.key, required this.onTabSelected});
+  const LogsTable({super.key, this.onTabSelected});
 
   @override
   State<LogsTable> createState() => _LogsTableState();
@@ -18,7 +18,7 @@ class _LogsTableState extends State<LogsTable> {
     super.initState();
     // タブが選択されたらログを読み込む
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      widget.onTabSelected();
+      widget.onTabSelected?.call();
     });
   }
 
@@ -27,7 +27,7 @@ class _LogsTableState extends State<LogsTable> {
     return Consumer<WeatherProvider>(
       builder: (context, provider, child) {
         return Container(
-          margin: const EdgeInsets.all(16),
+          margin: EdgeInsets.zero,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: Colors.white,
