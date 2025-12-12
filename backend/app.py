@@ -7,8 +7,6 @@ from flask import Flask, jsonify, request, render_template
 from flask_cors import CORS
 import sqlite3
 import requests
-from datetime import datetime, timedelta
-import json
 import os
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
