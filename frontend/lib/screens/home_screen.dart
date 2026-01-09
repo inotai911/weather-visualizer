@@ -6,6 +6,7 @@ import '../widgets/stats_card.dart';
 import '../widgets/weather_chart.dart';
 import '../widgets/weather_table.dart';
 import '../widgets/logs_table.dart';
+import '../widgets/weather_map.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -20,7 +21,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
 
     // 初期データ読み込み
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -48,12 +49,12 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           ),
         ),
         child: SafeArea(
-          child: Column(
-            children: [
-              // ヘッダー
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Row(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              children: [
+                // ヘッダー
+                Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     const Icon(Icons.wb_sunny, color: Colors.white, size: 32),
@@ -67,76 +68,105 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                     ),
                   ],
                 ),
-              ),
+                const SizedBox(height: 20),
 
-              // メインコンテンツ
-              Expanded(
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 20),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                  ),
-                  child: Column(
-                    children: [
-                      // コントロールパネル
-                      const ControlPanel(),
+                // メインコンテンツ（2カラムレイアウト）
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // 左カラム：コントロールパネルと統計サマリー（スクロール可能）
+                        SizedBox(
+                          width: 350,
+                          child: SingleChildScrollView(
+                            child: Column(
+                              children: [
+                                // コントロールパネル
+                                const ControlPanel(),
 
-                      // ステータスメッセージ
-                      Consumer<WeatherProvider>(
-                        builder: (context, provider, child) {
-                          if (provider.successMessage != null) {
-                            return _buildStatusMessage(provider.successMessage!, false);
-                          }
-                          if (provider.errorMessage != null) {
-                            return _buildStatusMessage(provider.errorMessage!, true);
-                          }
-                          return const SizedBox.shrink();
-                        },
-                      ),
+                                const SizedBox(height: 16),
 
-                      // 統計カード（コンパクトに）
-                      const StatsCard(),
+                                // ステータスメッセージ
+                                Consumer<WeatherProvider>(
+                                  builder: (context, provider, child) {
+                                    if (provider.successMessage != null) {
+                                      return _buildStatusMessage(provider.successMessage!, false);
+                                    }
+                                    if (provider.errorMessage != null) {
+                                      return _buildStatusMessage(provider.errorMessage!, true);
+                                    }
+                                    return const SizedBox.shrink();
+                                  },
+                                ),
 
-                      // タブバーとタブビューを密着させる
-                      Expanded(
-                        child: Column(
-                          children: [
-                            // タブバー
-                            Material(
-                              color: Colors.white,
-                              child: TabBar(
-                                controller: _tabController,
-                                labelColor: const Color(0xFF667EEA),
-                                unselectedLabelColor: Colors.grey,
-                                indicatorColor: const Color(0xFF667EEA),
-                                indicatorSize: TabBarIndicatorSize.tab,
-                                tabs: const [
-                                  Tab(icon: Icon(Icons.bar_chart), text: 'グラフ'),
-                                  Tab(icon: Icon(Icons.table_chart), text: 'データ表'),
-                                  Tab(icon: Icon(Icons.history), text: '操作ログ'),
-                                ],
-                              ),
+                                const SizedBox(height: 8),
+
+                                // 統計サマリー
+                                const StatsCard(),
+                              ],
                             ),
-                            // タブビュー（グラフエリア拡大）
-                            Expanded(
-                              child: TabBarView(
-                                controller: _tabController,
-                                children: const [
-                                  WeatherChart(),
-                                  WeatherTable(),
-                                  LogsTable(),
-                                ],
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
-                      ),
-                    ],
+
+                        const SizedBox(width: 24),
+
+                        // 右カラム：タブバーと地図/表
+                        Expanded(
+                          child: Column(
+                            children: [
+                              // タブバー
+                              Material(
+                                color: Colors.white,
+                                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                                child: TabBar(
+                                  controller: _tabController,
+                                  labelColor: const Color(0xFF667EEA),
+                                  unselectedLabelColor: Colors.grey,
+                                  indicatorColor: const Color(0xFF667EEA),
+                                  indicatorSize: TabBarIndicatorSize.tab,
+                                  tabs: const [
+                                    Tab(icon: Icon(Icons.map), text: '地図'),
+                                    Tab(icon: Icon(Icons.bar_chart), text: 'グラフ'),
+                                    Tab(icon: Icon(Icons.table_chart), text: 'データ表'),
+                                    Tab(icon: Icon(Icons.history), text: '操作ログ'),
+                                  ],
+                                ),
+                              ),
+                              // タブビュー
+                              Expanded(
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
+                                  ),
+                                  child: TabBarView(
+                                    controller: _tabController,
+                                    children: [
+                                      WeatherMap(),
+                                      WeatherChart(),
+                                      WeatherTable(),
+                                      LogsTable(onTabSelected: () {
+                                        Provider.of<WeatherProvider>(context, listen: false).loadLogs();
+                                      }),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

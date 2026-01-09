@@ -114,7 +114,9 @@ class WeatherProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final success = await _apiService.fetchWeatherFromApi(_selectedLocation!);
+      // hoursLimitを日数に変換（24で割って切り上げ）
+      final days = (_hoursLimit / 24).ceil();
+      final success = await _apiService.fetchWeatherFromApi(_selectedLocation!, days: days);
       _isLoading = false;
       if (success) {
         _successMessage = '${_selectedLocation}の気象データを取得しました';

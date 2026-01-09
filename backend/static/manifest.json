@@ -1,0 +1,9 @@
+{
+    "name": "Weather Visualizer",
+    "short_name": "Weather",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#667EEA",
+    "theme_color": "#667EEA",
+    "description": "気象情報可視化システム"
+}

@@ -68,14 +68,25 @@ def init_db():
     
     # デフォルトの地域を追加
     default_locations = [
+        # 主要都市
         ('東京', 35.6762, 139.6503),
         ('大阪', 34.6937, 135.5023),
-        ('名古屋', 35.1815, 136.9066),
         ('札幌', 43.0618, 141.3545),
         ('福岡', 33.5904, 130.4017),
         ('仙台', 38.2682, 140.8694),
         ('広島', 34.3853, 132.4553),
         ('那覇', 26.2124, 127.6809),
+        # 愛知県の主要都市
+        ('名古屋', 35.1815, 136.9066),
+        ('豊田', 35.0832, 137.1561),
+        ('岡崎', 34.9550, 137.1748),
+        ('一宮', 35.3036, 136.8006),
+        ('豊橋', 34.7692, 137.3914),
+        ('春日井', 35.2477, 136.9720),
+        ('豊川', 34.8270, 137.3771),
+        ('安城', 34.9578, 137.0807),
+        ('西尾', 34.8624, 137.0617),
+        ('刈谷', 35.0002, 137.0020),
     ]
     
     for name, lat, lon in default_locations:
@@ -122,13 +133,21 @@ def geocode_location(location_name):
 
 def fetch_weather_from_api(latitude, longitude, location_name, days=7):
     """Open Meteo APIから気象データを取得"""
+    from datetime import datetime, timedelta
+    
     url = "https://api.open-meteo.com/v1/forecast"
+    
+    # 現在時刻から過去のデータも含める
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=days-1)
+    
     params = {
         "latitude": latitude,
         "longitude": longitude,
         "hourly": "temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m,wind_direction_10m,weather_code,pressure_msl",
         "timezone": "Asia/Tokyo",
-        "forecast_days": days
+        "past_days": 1,
+        "forecast_days": 7
     }
     
     try:

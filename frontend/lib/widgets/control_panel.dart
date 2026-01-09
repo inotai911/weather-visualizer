@@ -159,6 +159,8 @@ class ControlPanel extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Container(
+          width: 200,
+          height: 44,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
             border: Border.all(color: Colors.grey[300]!),
@@ -169,6 +171,7 @@ class ControlPanel extends StatelessWidget {
               value: value,
               items: items,
               onChanged: onChanged,
+              isExpanded: true,
             ),
           ),
         ),
@@ -208,13 +211,16 @@ class ControlPanel extends StatelessWidget {
             }
           },
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            width: 200,
+            height: 44,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
               border: Border.all(color: Colors.grey[300]!),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
                   '${date.year}/${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')}',

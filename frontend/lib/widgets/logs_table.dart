@@ -27,7 +27,7 @@ class _LogsTableState extends State<LogsTable> {
     return Consumer<WeatherProvider>(
       builder: (context, provider, child) {
         return Container(
-          margin: EdgeInsets.zero,
+          margin: const EdgeInsets.all(16),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: Colors.white,

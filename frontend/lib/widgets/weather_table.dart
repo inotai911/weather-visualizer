@@ -11,7 +11,7 @@ class WeatherTable extends StatelessWidget {
     return Consumer<WeatherProvider>(
       builder: (context, provider, child) {
         return Container(
-          margin: EdgeInsets.zero,
+          margin: const EdgeInsets.all(16),
           padding: const EdgeInsets.all(0),
           decoration: BoxDecoration(
             color: Colors.white,
@@ -67,31 +67,34 @@ class WeatherTable extends StatelessWidget {
                             headingTextStyle: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
+                              fontSize: 14,
                             ),
                             dataRowMinHeight: 40,
                             dataRowMaxHeight: 50,
-                            columns: const [
-                              DataColumn(label: Text('日時')),
-                              DataColumn(label: Text('地域')),
-                              DataColumn(label: Text('天気')),
-                              DataColumn(label: Text('気温(℃)'), numeric: true),
-                              DataColumn(label: Text('湿度(%)'), numeric: true),
-                              DataColumn(label: Text('降水量(mm)'), numeric: true),
-                              DataColumn(label: Text('風速(m/s)'), numeric: true),
-                              DataColumn(label: Text('気圧(hPa)'), numeric: true),
+                            columnSpacing: 40,
+                            horizontalMargin: 24,
+                            columns: [
+                              DataColumn(label: SizedBox(width: 120, child: Text('日時', softWrap: false))),
+                              DataColumn(label: SizedBox(width: 100, child: Text('地域', softWrap: false))),
+                              DataColumn(label: SizedBox(width: 80, child: Text('天気', softWrap: false))),
+                              DataColumn(label: SizedBox(width: 100, child: Text('気温(℃)', softWrap: false)), numeric: true),
+                              DataColumn(label: SizedBox(width: 100, child: Text('湿度(%)', softWrap: false)), numeric: true),
+                              DataColumn(label: SizedBox(width: 120, child: Text('降水量(mm)', softWrap: false)), numeric: true),
+                              DataColumn(label: SizedBox(width: 120, child: Text('風速(m/s)', softWrap: false)), numeric: true),
+                              DataColumn(label: SizedBox(width: 120, child: Text('気圧(hPa)', softWrap: false)), numeric: true),
                             ],
                             rows: provider.weatherData.map((data) {
                               final dateFormat = DateFormat('MM/dd HH:mm');
                               return DataRow(
                                 cells: [
-                                  DataCell(Text(dateFormat.format(data.timestamp))),
-                                  DataCell(Text(data.locationName)),
-                                  DataCell(Text(data.weatherEmoji, style: const TextStyle(fontSize: 20))),
-                                  DataCell(Text(data.temperature?.toStringAsFixed(1) ?? '-')),
-                                  DataCell(Text(data.humidity?.toStringAsFixed(0) ?? '-')),
-                                  DataCell(Text(data.precipitation?.toStringAsFixed(1) ?? '-')),
-                                  DataCell(Text(data.windSpeed?.toStringAsFixed(1) ?? '-')),
-                                  DataCell(Text(data.pressure?.toStringAsFixed(0) ?? '-')),
+                                  DataCell(SizedBox(width: 120, child: Text(dateFormat.format(data.timestamp)))),
+                                  DataCell(SizedBox(width: 100, child: Text(data.locationName, softWrap: false, overflow: TextOverflow.ellipsis))),
+                                  DataCell(SizedBox(width: 80, child: Text(data.weatherEmoji, style: const TextStyle(fontSize: 20)))),
+                                  DataCell(SizedBox(width: 100, child: Text(data.temperature?.toStringAsFixed(1) ?? '-'))),
+                                  DataCell(SizedBox(width: 100, child: Text(data.humidity?.toStringAsFixed(0) ?? '-'))),
+                                  DataCell(SizedBox(width: 120, child: Text(data.precipitation?.toStringAsFixed(1) ?? '-'))),
+                                  DataCell(SizedBox(width: 120, child: Text(data.windSpeed?.toStringAsFixed(1) ?? '-'))),
+                                  DataCell(SizedBox(width: 120, child: Text(data.pressure?.toStringAsFixed(0) ?? '-'))),
                                 ],
                               );
                             }).toList(),
