@@ -472,9 +472,17 @@
         let currentMarker = null;
         
         function initMap() {
-            map = L.map('locationMap').setView([35, 135], 2);
+            map = L.map('locationMap', {
+                center: [35.6762, 139.6503],
+                zoom: 5,
+                zoomControl: true,
+                scrollWheelZoom: true
+            });
+            
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap'
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 18,
+                minZoom: 2
             }).addTo(map);
         }
         
@@ -482,7 +490,7 @@
             if (!map) initMap();
             
             if (!location) {
-                map.setView([35, 135], 2);
+                map.setView([35.6762, 139.6503], 5);
                 if (currentMarker) {
                     map.removeLayer(currentMarker);
                     currentMarker = null;
@@ -496,17 +504,45 @@
                     if (data && data.length > 0) {
                         const lat = parseFloat(data[0].lat);
                         const lon = parseFloat(data[0].lon);
+                        const displayName = data[0].display_name;
                         
                         if (currentMarker) map.removeLayer(currentMarker);
                         
-                        map.flyTo([lat, lon], 10, { duration: 1.5 });
+                        // カスタムアイコンを使用
+                        const customIcon = L.divIcon({
+                            className: 'custom-marker',
+                            html: '<div style="background-color: #1a73e8; width: 30px; height: 30px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 3px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"><div style="transform: rotate(45deg); margin-top: 5px; margin-left: 8px; color: white; font-weight: bold; font-size: 16px;">📍</div></div>',
+                            iconSize: [30, 30],
+                            iconAnchor: [15, 30],
+                            popupAnchor: [0, -30]
+                        });
                         
-                        currentMarker = L.marker([lat, lon]).addTo(map)
-                            .bindPopup(`<b>${location}</b>`)
+                        map.flyTo([lat, lon], 12, {
+                            duration: 1.5,
+                            easeLinearity: 0.5
+                        });
+                        
+                        currentMarker = L.marker([lat, lon], { icon: customIcon })
+                            .addTo(map)
+                            .bindPopup(`
+                                <div style="min-width: 150px;">
+                                    <h3 style="margin: 0 0 8px 0; color: #1a73e8;">${location}</h3>
+                                    <p style="margin: 0; font-size: 12px; color: #5f6368;">${displayName}</p>
+                                    <p style="margin: 8px 0 0 0; font-size: 11px; color: #80868b;">📍 ${lat.toFixed(4)}, ${lon.toFixed(4)}</p>
+                                </div>
+                            `, {
+                                maxWidth: 300,
+                                className: 'custom-popup'
+                            })
                             .openPopup();
+                    } else {
+                        showStatus('地域が見つかりませんでした', true);
                     }
                 })
-                .catch(err => console.error('地図エラー:', err));
+                .catch(err => {
+                    console.error('地図エラー:', err);
+                    showStatus('地図の読み込みに失敗しました', true);
+                });
         }
         
         // 初期化
